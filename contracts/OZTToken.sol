@@ -45,14 +45,9 @@ contract OZTToken is StandardToken, Ownable {
 
 	function OZTToken() {
 		owner                	= msg.sender;
-		//uint256 amountReserve  = SafeMath.div(SafeMath.mul(MAX_NUM_OZT_TOKENS, 20) , 100);  // 20% allocated and controlled by to NaviAddress
-		//balances[owner]  		= amountReserve;
-		//totalSupply          	= MAX_NUM_OZT_TOKENS;
-		//assignedSupply       	= amountReserve;
 		assignedSupply = 0;
 
 		// for test only: set START_ICO to contract creation timestamp
-		// +600 => add 10 minutes
 		START_ICO_TIMESTAMP = now; // line to remove before the main net deployment 
 	}
 
@@ -81,7 +76,7 @@ contract OZTToken is StandardToken, Ownable {
 				uint amount = SafeMath.mul(_vamounts[index], 10 ** decimals);
 				uint defrostClass = _vDefrostClass[index]; // 0=ico investor, 1=reserveandteam , 2=advisor 
 							
-				if (  defrostClass  == 0 ) {
+				if (  defrostClass == 0 ) {
 					// investor account
 					balances[toAddress] = amount;
 					assignedSupply = SafeMath.add(assignedSupply, amount);
@@ -119,7 +114,7 @@ contract OZTToken is StandardToken, Ownable {
 		return DEFROST_MONTHS;
 	}
 
-	function canDefrost()constant returns (bool){
+	function canDefrost() constant returns (bool){
 		int numMonths = elapsedMonthsFromICOStart();
 		return  numMonths > DEFROST_MONTHS && 
 							uint(numMonths) <= SafeMath.add(uint(DEFROST_MONTHS),  DEFROST_FACTOR/2+1);
@@ -183,33 +178,6 @@ contract OZTToken is StandardToken, Ownable {
 	function setStopDefrost() onlyOwner constant {
 			stopDefrost = true;
 	}
-
-	// -----------------
-	// a scheduled task should set this value several times per day (for instance using average price from coinmarketcap.com) 
-	function setCurrentOneTokenEthPrice(uint256 ethprice) onlyOwner {
-			oneTokenWeiPrice = ethprice;
-	}
-
-	// FlashMoni can sell OZT after the ICO at the market price
-	// FlashMoni act as a OZT continuous store 
-	function buyOZTTokens() payable {
-
-		require(msg.value > 0);
-		require(msg.value > oneTokenWeiPrice);
-		require(balances[owner] >= msg.value);
-		require(oneTokenWeiPrice>0);
-		
-		uint256 numTokens = msg.value / oneTokenWeiPrice;
-		//require(balances[owner] - numTokens >= MIN_OWNER_NBTOKEN); // flashmoni must keep at least MIN_OWNER_NBTOKEN tokens
-		if(balances[owner] - numTokens < MIN_OWNER_NBTOKEN){
-			// 1100				1200				1000
-			numTokens = numTokens - balances[owner];  // cannot deliver more since flashmoni must keep MIN_OWNER_NBTOKEN tokens
-		}
-
-		balances[owner] = balances[owner] - numTokens;
-		balances[msg.sender] = balances[msg.sender] + numTokens;
-	}
-	//---------------------------------------
 
 	function killContract() onlyOwner {
 		selfdestruct(owner);
