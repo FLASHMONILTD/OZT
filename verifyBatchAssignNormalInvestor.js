@@ -45,6 +45,20 @@ var multDecimals = 1000000000000000000
 
 //var vv = lines[10].split(",");
 
+
+oztContract.getAddressAndBalance.call('0x627306090abaB3A6e1400e9345bC60c78a8BEf57', function(error, result){
+        if (!error) {
+            retAddress = result[0];
+            retAmount = result[1];
+            console.log("getAddressBalance OWNER called : " + retAmount + " tokens found for " + retAddress);
+            console.log("---------------------------------------------------------------------");
+            console.log("---------------------------------------------------------------------");
+
+        } else {
+            console.log("getAddressBalance OWNER ERROR  :" +error);
+        }
+});
+
 var vmatchOK = []
 var vmatchErr = []
 var totalAssignedOnFile = 0

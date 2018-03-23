@@ -104,12 +104,15 @@ function estimateGas(dataparam){
 
 function tryDefrost() {
 
-        console.log("into tryDefrostReserveAndTeam()");
+        console.log("into tryDefrost()");
         // Reserve And Team -------------------------------------
-        dataparam = oztContract.defrostTokens.getData()
+
+        fromIdx=0;
+        toIdx=0;
+        dataparam = oztContract.defrostTokens.getData(fromIdx,toIdx);
         // var gasOk = estimateGas(dataparam) * ;   			
 
-        oztContract.defrostTokens( { gas: 999000 },  function(error, result){
+        oztContract.defrostTokens( fromIdx, toIdx, { gas: 999000 },  function(error, result){
             if (!error) {
                 console.log("defrostTokens OK:" + result);  // OK
                 waitForBlock(result, false);

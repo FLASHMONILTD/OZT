@@ -12,12 +12,11 @@ contract OZTToken is StandardToken, Ownable {
 	uint256 public constant decimals = 18;
 
 	uint256 public constant MAX_NUM_OZT_TOKENS    =  730000000 * 10 ** decimals;
-	uint256 public constant MIN_OWNER_NBTOKEN    = MAX_NUM_OZT_TOKENS * 20 / 100;
 
 	// Freeze duration for Advisors accounts
-	// uint256 public constant START_ICO_TIMESTAMP   = 1501595111;  // line to decomment for the PROD before the main net deployment
+	// uint256 public constant START_ICO_TIMESTAMP   = 1501595111;  // ONLY FOR TESTING! CHANGE IN PROD!  line to decomment for the PROD before the main net deployment
 	uint256 public START_ICO_TIMESTAMP; // !!! line to remove before the main net deployment (not constant for testing and overwritten in the constructor)
-	int public constant DEFROST_MONTH_IN_MINUTES = 1; // month in minutes  (1month = 43200 min)
+	int public constant DEFROST_MONTH_IN_MINUTES = 1; // month in minutes  (1month = 43200 min) ONLY FOR TESTING! CHANGE IN PROD!
 	int public constant DEFROST_MONTHS = 3; 	
 
 	/*
@@ -30,9 +29,9 @@ contract OZTToken is StandardToken, Ownable {
 	uint public constant DEFROST_FACTOR = 20;
 
 	// Fields that can be changed by functions
-	address[] vIcedBalances;
-	mapping (address => uint256) icedBalances_frosted;
-    mapping (address => uint256) icedBalances_defrosted;
+	address[] public vIcedBalances;
+	mapping (address => uint256) public icedBalances_frosted;
+    mapping (address => uint256) public icedBalances_defrosted;
 
 	// Variable usefull for verifying that the assignedSupply matches that totalSupply
 	uint256 public assignedSupply;
@@ -47,11 +46,15 @@ contract OZTToken is StandardToken, Ownable {
 		owner                	= msg.sender;
 		assignedSupply = 0;
 
+		// mint all tokens
+        balances[msg.sender] = MAX_NUM_OZT_TOKENS;
+        Transfer(address(0x0), msg.sender, MAX_NUM_OZT_TOKENS);
+
 		// for test only: set START_ICO to contract creation timestamp
 		START_ICO_TIMESTAMP = now; // line to remove before the main net deployment 
 	}
 
-	function setDefroster(address addr) onlyOwner constant {
+	function setDefroster(address addr) onlyOwner {
 		defroster = addr;
 	}
 
@@ -74,24 +77,22 @@ contract OZTToken is StandardToken, Ownable {
 
 				address toAddress = _vaddr[index];
 				uint amount = SafeMath.mul(_vamounts[index], 10 ** decimals);
-				uint defrostClass = _vDefrostClass[index]; // 0=ico investor, 1=reserveandteam , 2=advisor 
+				uint defrostClass = _vDefrostClass[index]; // 0=ico investor, 1=reserveandteam/advisors
 							
 				if (  defrostClass == 0 ) {
 					// investor account
-					balances[toAddress] = amount;
+					transfer(toAddress, amount);
 					assignedSupply = SafeMath.add(assignedSupply, amount);
 				}
 				else if(defrostClass == 1){
 				
 					// Iced account. The balance is not affected here
-                    vIcedBalances.push(toAddress);
-					balances[toAddress] = 0;                   
+                    vIcedBalances.push(toAddress);                  
                     icedBalances_frosted[toAddress] = amount;
 					icedBalances_defrosted[toAddress] = 0;
 					assignedSupply = SafeMath.add(assignedSupply, amount);
 				}
 			}
-			balances[owner] = MAX_NUM_OZT_TOKENS - assignedSupply;   
 	}
 
 	function getBlockTimestamp() constant returns (uint256){
@@ -120,15 +121,21 @@ contract OZTToken is StandardToken, Ownable {
 							uint(numMonths) <= SafeMath.add(uint(DEFROST_MONTHS),  DEFROST_FACTOR/2+1);
 	}
 
-	function defrostTokens() onlyDefrosterOrOwner {
+	function defrostTokens(uint fromIdx, uint toIdx) onlyDefrosterOrOwner {
 
 		require(now>START_ICO_TIMESTAMP);
 		require(stopDefrost == false);
+		require(fromIdx>=0 && toIdx<=vIcedBalances.length);
+		if(fromIdx==0 && toIdx==0){
+			fromIdx = 0;
+			toIdx = vIcedBalances.length;
+		}
 
 		int monthsElapsedFromFirstDefrost = elapsedMonthsFromICOStart() - DEFROST_MONTHS;
 		require(monthsElapsedFromFirstDefrost>0);
 		uint monthsIndex = uint(monthsElapsedFromFirstDefrost);
-		require(monthsIndex<=DEFROST_FACTOR);
+		//require(monthsIndex<=DEFROST_FACTOR);
+		require(canDefrost() == true);
 
 		/*
 			if monthsIndex == 1 => defrost 50%
@@ -136,7 +143,7 @@ contract OZTToken is StandardToken, Ownable {
 		*/
 
 		// Looping into the iced accounts
-        for (uint index = 0; index < vIcedBalances.length; index++) {
+        for (uint index = fromIdx; index < toIdx; index++) {
 
 			address currentAddress = vIcedBalances[index];
             uint256 amountTotal = SafeMath.add(icedBalances_frosted[currentAddress], icedBalances_defrosted[currentAddress]);
@@ -152,8 +159,8 @@ contract OZTToken is StandardToken, Ownable {
 		    if (amountToRelease > 0 && targetDeFrosted > 0) {
                 icedBalances_frosted[currentAddress] = SafeMath.sub(icedBalances_frosted[currentAddress], amountToRelease);
                 icedBalances_defrosted[currentAddress] = SafeMath.add(icedBalances_defrosted[currentAddress], amountToRelease);
-                balances[currentAddress] = SafeMath.add(balances[currentAddress], amountToRelease);
-            }
+				transfer(currentAddress, amountToRelease); 
+	        }
         }
 	}
 
